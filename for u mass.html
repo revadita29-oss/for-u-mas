@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Aesthetic Particle - I LIKE EJAA</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@900&display=swap');
+
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: radial-gradient(circle at center, #0a192f 0%, #050b14 100%);
+            font-family: 'Segoe UI', sans-serif; 
+        }
+        canvas { display: block; }
+        
+        #controls {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            display: flex;
+            gap: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 12px 25px;
+            border-radius: 50px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        button {
+            padding: 10px 20px;
+            background: transparent;
+            color: #ace5ee;
+            border: 1px solid rgba(172, 229, 238, 0.3);
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        button:hover {
+            background: #ff69c9;
+            color: white;
+            border-color: #ff69c9;
+            box-shadow: 0 0 15px rgba(255, 105, 201, 0.5);
+        }
+
+        #title {
+            position: absolute;
+            top: 30px;
+            width: 100%;
+            text-align: center;
+            color: white;
+            font-weight: 300;
+            letter-spacing: 8px;
+            opacity: 0.4;
+            pointer-events: none;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+    <h2 id="title">f o r   u</h2>
+
+    <div id="controls">
+        <button onclick="changeShape('heart')">for u</button>
+        <button onclick="changeShape('scatter')">myworld</button>
+        <button onclick="changeShape('text')">for u mas</button>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        const particleCount = 8000; // Ditingkatkan untuk kehalusan gerakan
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        document.body.appendChild(renderer.domElement);
+
+        const currentPos = new Float32Array(particleCount * 3);
+        const targetPos = new Float32Array(particleCount * 3);
+        const colors = new Float32Array(particleCount * 3);
+        const initialOffsets = new Float32Array(particleCount); // Untuk variasi gerakan individu
+
+        const colorCyan = new THREE.Color("#4fb0c6"); 
+        const colorPink = new THREE.Color("#ff69c9");
+
+        function getTextPoints(text) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 1000; canvas.height = 200;
+            ctx.font = "900 120px 'Playfair Display', serif";
+            ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+            const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+            const pts = [];
+            for (let y = 0; y < canvas.height; y += 2) {
+                for (let x = 0; x < canvas.width; x += 2) {
+                    if (data[(y * canvas.width + x) * 4 + 3] > 128) {
+                        pts.push({ x: (x - canvas.width / 2) * 0.05, y: -(y - canvas.height / 2) * 0.05 });
+                    }
+                }
+            }
+            return pts;
+        }
+
+        const textPoints = getTextPoints("I LIKE EJAA");
+
+        function setHeart() {
+            for (let i = 0; i < particleCount; i++) {
+                const t = Math.random() * Math.PI * 2;
+                targetPos[i*3] = (16 * Math.pow(Math.sin(t), 3)) * 0.45;
+                targetPos[i*3+1] = (13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t)) * 0.45;
+                targetPos[i*3+2] = (Math.random() - 0.5) * 3;
+            }
+        }
+
+        function setScatter() {
+            for (let i = 0; i < particleCount; i++) {
+                const r = 15;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                targetPos[i*3] = r * Math.sin(phi) * Math.cos(theta);
+                targetPos[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
+                targetPos[i*3+2] = r * Math.cos(phi);
+            }
+        }
+
+        function setText() {
+            for (let i = 0; i < particleCount; i++) {
+                const pt = textPoints[i % textPoints.length];
+                targetPos[i*3] = pt.x;
+                targetPos[i*3+1] = pt.y;
+                targetPos[i*3+2] = (Math.random() - 0.5) * 0.5;
+            }
+        }
+
+        const geo = new THREE.BufferGeometry();
+        for (let i = 0; i < particleCount; i++) {
+            const mix = i / particleCount;
+            const c = colorCyan.clone().lerp(colorPink, mix);
+            colors[i*3] = c.r; colors[i*3+1] = c.g; colors[i*3+2] = c.b;
+            currentPos[i*3] = (Math.random() - 0.5) * 50;
+            currentPos[i*3+1] = (Math.random() - 0.5) * 50;
+            currentPos[i*3+2] = (Math.random() - 0.5) * 50;
+            initialOffsets[i] = Math.random() * Math.PI * 2;
+        }
+
+        geo.setAttribute('position', new THREE.BufferAttribute(currentPos, 3));
+        geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+        const mat = new THREE.PointsMaterial({ 
+            size: 0.08, 
+            vertexColors: true, 
+            blending: THREE.AdditiveBlending, 
+            transparent: true,
+            opacity: 0.8
+        });
+
+        const points = new THREE.Points(geo, mat);
+        scene.add(points);
+
+        camera.position.z = 25;
+        setHeart();
+
+        window.changeShape = (type) => {
+            if (type === 'heart') setHeart();
+            else if (type === 'scatter') setScatter();
+            else if (type === 'text') setText();
+        };
+
+        let mouseX = 0, mouseY = 0;
+        document.addEventListener('mousemove', (e) => {
+            mouseX = (e.clientX - window.innerWidth / 2) * 0.0005;
+            mouseY = (e.clientY - window.innerHeight / 2) * 0.0005;
+        });
+
+        let time = 0;
+        function animate() {
+            time += 0.01;
+            requestAnimationFrame(animate);
+            const posAttr = points.geometry.attributes.position;
+            
+            for (let i = 0; i < particleCount; i++) {
+                const i3 = i * 3;
+                
+                // Gerakan mengambang (Floating/Wavy effect)
+                const waveX = Math.sin(time + initialOffsets[i]) * 0.02;
+                const waveY = Math.cos(time + initialOffsets[i]) * 0.02;
+
+                // Transisi posisi + Gerakan indah
+                posAttr.array[i3] += (targetPos[i3] - posAttr.array[i3]) * 0.07 + waveX;
+                posAttr.array[i3+1] += (targetPos[i3+1] - posAttr.array[i3+1]) * 0.07 + waveY;
+                posAttr.array[i3+2] += (targetPos[i3+2] - posAttr.array[i3+2]) * 0.07;
+            }
+            
+            posAttr.needsUpdate = true;
+            
+            // Efek Pulsing pada ukuran (Blinking effect)
+            mat.size = 0.07 + Math.sin(time * 3) * 0.015;
+
+            // Rotasi halus
+            points.rotation.y += (mouseX - points.rotation.y) * 0.05 + 0.001;
+            points.rotation.x += (mouseY - points.rotation.x) * 0.05;
+            
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
